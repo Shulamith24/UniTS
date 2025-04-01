@@ -220,12 +220,13 @@ class Exp_All_Task(object):
             for sample_idx in range(len_sample_list):
                 sample = sample_list[sample_idx]
                 x_enc, x_mark_enc, pad_mask = sample
-                #unpatch每个小batch的样本为：编码器输入序列，编码器标记()，填充掩码
+                #unpatch每个小batch的样本为：输入序列，输入序列的时间戳，填充掩码(指示哪些位置是掩码)
+                #[batch_size, seq_len, enc_in],[batch_size, seq_len, time_stamp],[batch_size, seq_len]
                 with torch.cuda.amp.autocast():
                     model_output = self.model(
                         x_enc=x_enc, x_mark_enc=x_mark_enc, task_id=task_id, task_name=task_name, enable_mask=True)
                 
-                #model_output得到
+                #统一掩码重建损失，计算得到掩码重建损失和分类辅助损失
                 loss_dict = criterion(model_output, x_enc, pad_mask)
                 loss = loss_dict['loss']
                 loss /= acc_it

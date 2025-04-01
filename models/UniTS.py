@@ -543,6 +543,7 @@ class ForecastHead(nn.Module):
             in_features=128, out_features=128, fixed_in=prefix_token_length)
 
     def forward(self, x_full, pred_len, token_len):
+        #进行一部线性投影，提取序列部分特征，
         x_full = self.proj_in(x_full)
         x_pred = x_full[:, :, -token_len:]
         x = x_full.transpose(-1, -2)
@@ -896,6 +897,7 @@ class Model(nn.Module):
         else:
             return self.right_masking(x, min_mask_ratio, max_mask_ratio)
 
+    #
     def get_mask_seq(self, mask, seq_len):
         mask_seq = mask.unsqueeze(dim=-1).repeat(1, 1, self.patch_len)
         mask_seq = mask_seq.permute(0, 2, 1)
@@ -911,43 +913,61 @@ class Model(nn.Module):
     def pretraining(self, x, x_mark, task_id, enable_mask=False):
         dataset_name = self.configs_list[task_id][1]['dataset']
         task_data_name = self.configs_list[task_id][0]
+
         prefix_prompt = self.prompt_tokens[dataset_name]
         mask_token = self.mask_tokens[dataset_name]
         cls_token = self.cls_tokens[task_data_name]
 
         seq_len = x.shape[1]
+        #x[batch_size * n_vars, seq_token_len, d_model],
+        """means：形状为 [batch_size, 1, feature_dim]，序列均值
+            stdev：形状为 [batch_size, 1, feature_dim]，序列标准差
+            n_vars：标量，变量数量（时间序列中的特征数）
+            padding：标量，为使序列长度可被patch_len整除而添加的填充长度"""
         x, means, stdev, n_vars, padding = self.tokenize(x)
         seq_token_len = x.shape[-2]
 
-        # append prompt tokens
+        # 输入序列变为[batch_size, n_vars变量数, seq_token_len分块数目, d_model]
         x = torch.reshape(
             x, (-1, n_vars, x.shape[-2], x.shape[-1]))
-        # prepare prompts
+        #  [batch_size, n_vars, prompt_num, d_model]
         this_prompt = prefix_prompt.repeat(x.shape[0], 1, 1, 1)
 
+        #如果启用掩码，将被掩码的位置替换为掩码token，添加位置编码，加上提示token
         if enable_mask:
             mask = self.choose_masking(x, self.right_prob,
                                        self.min_mask_ratio, self.max_mask_ratio)
+            #mask[batch_size, seq_token_len]
             mask_repeat = mask.unsqueeze(dim=1).unsqueeze(dim=-1)
             mask_repeat = mask_repeat.repeat(1, x.shape[1], 1, x.shape[-1])
-            x = x * (1-mask_repeat) + mask_token * mask_repeat  # todo
+            #mask_repeat[batch_size, n_vars, seq_token_len, d_model]扩张维度，
+            #需要掩码的位置为1，不需要的位置是0
+
+            
+            x = x * (1-mask_repeat) + mask_token * mask_repeat
+            #在不需要掩码的位置为原始值，掩码位置为mask_token
 
             init_full_input = torch.cat((this_prompt, x), dim=-2)
             init_mask_prompt = self.prompt2forecat(
                 init_full_input.transpose(-1, -2), x.shape[2]).transpose(-1, -2)
-            # keep the unmasked tokens and fill the masked ones with init_mask_prompt.
+            # 用预测值代替掩码token，并添加位置编码
             x = x * (1-mask_repeat) + init_mask_prompt * mask_repeat
             x = x + self.position_embedding(x)
+
+            # 将token形式的掩码转换回序列位置上，用于之后的损失计算
             mask_seq = self.get_mask_seq(mask, seq_len+padding)
             mask_seq = mask_seq[:, :seq_len]
         this_function_prompt = cls_token.repeat(x.shape[0], 1, 1, 1)
         x = torch.cat((this_prompt, x, this_function_prompt), dim=2)
-
+        #最后连接CLStoken
         x = self.backbone(x, prefix_prompt.shape[2], seq_token_len)
 
+        #双路径重建输出
         if enable_mask:
+            #forecast_head == GEN tower,输出mask_dec_out[B, seq_len, V]
             mask_dec_out = self.forecast_head(
                 x[:, :, :-1], seq_len+padding, seq_token_len)
+            
             mask_dec_out = mask_dec_out[:, :seq_len]
             # De-Normalization from Non-stationary Transformer
             mask_dec_out = mask_dec_out * \
