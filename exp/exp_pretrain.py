@@ -21,6 +21,7 @@ import sys
 
 warnings.filterwarnings('ignore')
 
+#重写print函数，使其能同时输出到终端和保存到日志文件
 def custom_print_decorator(func):
     def wrapper(*args, **kwargs):
         text = ' '.join(map(str, args))
@@ -42,7 +43,7 @@ def custom_print_decorator(func):
 # replace print to save all print into log files
 print = custom_print_decorator(print)
 
-
+# 读取YAML格式的配置文件，获取任务和数据集的配置信息。配置文件包含了各种任务（如预测、分类等）的数据集参数。
 def read_task_data_config(config_path):
     with open(config_path, 'r') as config_file:
         config = yaml.load(config_file, Loader=yaml.FullLoader)
@@ -50,6 +51,7 @@ def read_task_data_config(config_path):
     return task_dataset_config
 
 
+#将读取到的配置文件转换为列表格式，为每个任务设置默认的batch大小
 def get_task_data_config_list(task_data_config, default_batch_size=None):
     task_data_config_list = []
 
@@ -60,6 +62,7 @@ def get_task_data_config_list(task_data_config, default_batch_size=None):
     return task_data_config_list
 
 
+#创建一个平衡的数据加载器迭代器，合并多个数据集的数据加载器，输入dataloader列表
 def init_and_merge_datasets(data_loader_list):
     dataloader = BalancedDataLoaderIterator(data_loader_list)
     train_steps = dataloader.__len__()
@@ -74,14 +77,15 @@ class Exp_All_Task(object):
         self.args = args
         self.task_data_config = read_task_data_config(
             self.args.task_data_config_path)
+        #返回每个任务的[task_name, task_config]的列表
         self.task_data_config_list = get_task_data_config_list(
             self.task_data_config, default_batch_size=self.args.batch_size)
         device_id = dist.get_rank() % torch.cuda.device_count()
         print("this device_id:", device_id)
         self.device_id = device_id
 
-    def _build_model(self, ddp=True):
-        module = importlib.import_module("models."+self.args.model)
+    def _build_model(self, ddp=True):       #ddp:分布式数据并行
+        module = importlib.import_module("models."+self.args.model) #导入models.UniTS
         model = module.Model(
             self.args, self.task_data_config_list, pretrain=True).to(self.device_id)
         if ddp:
@@ -89,6 +93,7 @@ class Exp_All_Task(object):
                 model, device_ids=[self.device_id], find_unused_parameters=True)
         return model.to(self.device_id)
 
+    #返回所有数据集对应的dataset和dataloader列表
     def _get_data(self, flag):
         data_set_list = []
         data_loader_list = []
@@ -122,31 +127,34 @@ class Exp_All_Task(object):
             os.makedirs(path)
         self.path = path
 
+        #同步所有GPU
         torch.cuda.synchronize()
         dist.barrier()
 
-        # Data loader
+        # 输入dataloader列表返回一个抽样式dataloader，每次调用next返回一个样本和对应的数据集标识
         _, train_loader_list = self._get_data(flag='train')
         data_loader_cycle, train_steps = init_and_merge_datasets(
             train_loader_list)
 
-        # Set up batch size for each task
+        # S 内存检查
         if self.args.memory_check:
             self.memory_check(data_loader_cycle)
             torch.cuda.empty_cache()
-
+        
+        #再次同步GPU
         torch.cuda.synchronize()
         dist.barrier()
 
-        # Model
+        # M构建模型
         self.model = self._build_model()
 
+        #输出模型参数和训练步数信息
         pytorch_total_params = sum(p.numel() for p in self.model.parameters())
         print("Parameters number {} M".format(
             pytorch_total_params/1e6), folder=self.path)
         print("{} steps for each epoch".format(train_steps), folder=self.path)
 
-        # Optimizer
+        # 配置优化器和学习率调度器
         model_optim = self._select_optimizer()
         lr_schedule = cosine_scheduler(
             self.real_learning_rate,
@@ -155,7 +163,7 @@ class Exp_All_Task(object):
             warmup_epochs=self.args.warmup_epochs,
         )
 
-        # Loss
+        # L损失函数和混合精度训练
         criterion = UnifiedMaskRecLoss().to(self.device_id)
         scaler = NativeScaler()
 
@@ -181,24 +189,27 @@ class Exp_All_Task(object):
         return self.model
 
     def train_one_epoch(self, model_optim, data_loader_cycle, criterion, epoch, train_steps, scaler, lr_schedule):
-        current_device = torch.cuda.current_device()
-        train_loss_set = []
+        #初始化
+        current_device = torch.cuda.current_device()    #获取GPU设备ID
+        train_loss_set = []     #损失记录列表
 
-        acc_it = self.args.acc_it
-        max_norm = self.args.clip_grad
-        min_keep_ratio = self.args.min_keep_ratio
+        acc_it = self.args.acc_it       #梯度累计步数，允许在多个批次累计梯度再更新模型
+        max_norm = self.args.clip_grad  #裁剪最大范数
+        min_keep_ratio = self.args.min_keep_ratio   #掩码中的最小保留比例
 
         self.model.train()
         epoch_time = time.time()
-        self.model.zero_grad(set_to_none=True)
+        self.model.zero_grad(set_to_none=True)      #清零模型参数
         loss_sum_display = 0
 
+        #遍历数据
         for i, (sample_init, task_id) in enumerate(data_loader_cycle):
-            it = train_steps * epoch + i
-            for _, param_group in enumerate(model_optim.param_groups):
-                param_group["lr"] = lr_schedule[it]
+            it = train_steps * epoch + i            #全局迭代步数
+            for _, param_group in enumerate(model_optim.param_groups):  #
+                param_group["lr"] = lr_schedule[it] #更新学习率
 
             # Get batch data based on the real batch size of each task: avoid OOM for large samples
+            # 对于传入的一个batch数据，根据memory得到的该数据集和任务对应的最大batch_size，进行分batch多步更新梯度。
             task_name = self.task_data_config_list[task_id][1]['task_name']
             small_batch_size = self.task_data_config_list[task_id][1]['max_batch']
             sample_list = self.get_multi_source_data(
@@ -209,9 +220,12 @@ class Exp_All_Task(object):
             for sample_idx in range(len_sample_list):
                 sample = sample_list[sample_idx]
                 x_enc, x_mark_enc, pad_mask = sample
+                #unpatch每个小batch的样本为：编码器输入序列，编码器标记()，填充掩码
                 with torch.cuda.amp.autocast():
                     model_output = self.model(
                         x_enc=x_enc, x_mark_enc=x_mark_enc, task_id=task_id, task_name=task_name, enable_mask=True)
+                
+                #model_output得到
                 loss_dict = criterion(model_output, x_enc, pad_mask)
                 loss = loss_dict['loss']
                 loss /= acc_it
@@ -259,6 +273,7 @@ class Exp_All_Task(object):
 
         return train_loss
 
+    #用于分割大batch为小batch
     def get_multi_source_data(self, this_batch, task_name, small_batch_size, min_keep_ratio=None):
         """
         Splits the input batch into smaller batches based on the specified small_batch_size.

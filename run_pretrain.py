@@ -14,9 +14,9 @@ if __name__ == '__main__':
                         help='task name')
     parser.add_argument('--is_training', type=int,
                         required=True, default=1, help='status')
-    parser.add_argument('--model_id', type=str, required=True,
+    parser.add_argument('--model_id', type=str, required=True,       #模型标识符，用于区分不同的实验
                         default='test', help='model id')
-    parser.add_argument('--model', type=str, required=True, default='UniTS',
+    parser.add_argument('--model', type=str, required=True, default='UniTS',    #指定使用的模型名称，统一接口，为UniTS
                         help='model name')
 
     # data loader
@@ -28,22 +28,22 @@ if __name__ == '__main__':
                         help='target feature in S or MS task')
     parser.add_argument('--freq', type=str, default='h',
                         help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily, b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h')
-    parser.add_argument('--task_data_config_path', type=str,
+    parser.add_argument('--task_data_config_path', type=str,            #任务和数据yaml文件的根路径
                         default='exp/all_task_pretrain.yaml', help='root path of the task and data yaml file')
-    parser.add_argument('--subsample_pct', type=float,
+    parser.add_argument('--subsample_pct', type=float,                  #子数据集采样百分比
                         default=None, help='subsample percent')
 
-    # pretrain
-    parser.add_argument('--right_prob', type=float,
+    # pretrain--预训练特定参数
+    parser.add_argument('--right_prob', type=float,             #右侧掩码概率，控制掩码位置的分布
                         default=1.0, help='right mask prob')
-    parser.add_argument('--min_mask_ratio', type=float,
+    parser.add_argument('--min_mask_ratio', type=float,         #最小掩码比例
                         default=0.5, help='min right mask prob')
-    parser.add_argument('--max_mask_ratio', type=float,
+    parser.add_argument('--max_mask_ratio', type=float,         #最大掩码比例
                         default=0.8, help='max right mask prob')
-    parser.add_argument('--min_keep_ratio', type=float, default=None,
+    parser.add_argument('--min_keep_ratio', type=float, default=None,   #与训练中保留的最小裁剪比例
                         help='min crop ratio for various length in pretraining')
 
-    # ddp
+    # ddp   #分布式训练参数
     parser.add_argument('--local-rank', type=int, help='local rank')
     parser.add_argument("--dist_url", default="env://", type=str, help="""url used to set up
         distributed training; see https://pytorch.org/docs/stable/distributed.html""")
@@ -58,20 +58,20 @@ if __name__ == '__main__':
                         default=0, help='warmup epochs')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='batch size of train input data')
-    parser.add_argument('--acc_it', type=int, default=32,
+    parser.add_argument('--acc_it', type=int, default=32,           #累计梯度，等待多个小batch后再更新，能模拟大batch
                         help='acc iteration to enlarge batch size')
     parser.add_argument('--learning_rate', type=float,
                         default=0.0001, help='optimizer learning rate')
     parser.add_argument('--min_lr', type=float, default=1e-6,
                         help='optimizer learning rate')
-    parser.add_argument('--beta2', type=float,
+    parser.add_argument('--beta2', type=float,                      #adam优化器的参数
                         default=0.999, help='optimizer beta2')
     parser.add_argument('--weight_decay', type=float,
                         default=0.0, help='optimizer weight decay')
     parser.add_argument('--dropout', type=float, default=0.1, help='dropout')
-    parser.add_argument('--eps', type=float, default=1e-08,
+    parser.add_argument('--eps', type=float, default=1e-08,         #优化器的eplison参数
                         help='eps for optimizer')
-    parser.add_argument('--des', type=str, default='test',
+    parser.add_argument('--des', type=str, default='test',          #实验描述
                         help='exp description')
     parser.add_argument('--debug', type=str,
                         default='enabled', help='disabled')
@@ -81,17 +81,17 @@ if __name__ == '__main__':
                         default='./checkpoints/', help='location of model checkpoints')
 
     parser.add_argument("--memory_check", action="store_true", default=True)
-    parser.add_argument("--large_model", action="store_true", default=True)
+    parser.add_argument("--large_model", action="store_true", default=True)     #是否使用大模型设置
 
     # model settings
     parser.add_argument('--d_model', type=int, default=512,
                         help='dimension of model')
     parser.add_argument('--n_heads', type=int, default=8, help='num of heads')
-    parser.add_argument('--e_layers', type=int, default=2,
+    parser.add_argument('--e_layers', type=int, default=2,          #编码器层数
                         help='num of encoder layers')
-    parser.add_argument("--patch_len", type=int, default=16)
-    parser.add_argument("--stride", type=int, default=8)
-    parser.add_argument("--prompt_num", type=int, default=10)
+    parser.add_argument("--patch_len", type=int, default=16)        #每个patch的长度，时间序列patch
+    parser.add_argument("--stride", type=int, default=8)            #patch的步长
+    parser.add_argument("--prompt_num", type=int, default=10)       #提示token的数量
 
     args = parser.parse_args()
     init_distributed_mode(args)

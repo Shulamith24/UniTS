@@ -10,12 +10,14 @@ from timm.layers import Mlp, DropPath
 from timm.layers.helpers import to_2tuple
 
 
+#输入 输入的序列长度、窗口，输出滑动窗口操作后的序列长度
 def calculate_unfold_output_length(input_length, size, step):
     # Calculate the number of windows
     num_windows = (input_length - size) // step + 1
     return num_windows
 
 
+#跨序列注意力机制，允许两个序列之间进行注意力计算
 class CrossAttention(nn.Module):
     def __init__(
             self,
@@ -207,6 +209,7 @@ class LearnablePositionalEmbedding(nn.Module):
         return self.pe[:, :, offset:offset+x.size(2)]
 
 
+#实现序列内的自注意力，捕捉时间维度上的依赖关系。
 class SeqAttention(nn.Module):
 
     def __init__(
@@ -249,6 +252,7 @@ class SeqAttention(nn.Module):
         return x
 
 
+#实现变量间注意力的运算，捕捉不同时间序列变量之间的依赖关系。
 class VarAttention(nn.Module):
 
     def __init__(
@@ -567,12 +571,14 @@ class Model(nn.Module):
     def __init__(self, args, configs_list, pretrain=False):
         super().__init__()
 
+        #预训练掩码策略
         if pretrain:
             self.right_prob = args.right_prob
             self.min_mask_ratio = args.min_mask_ratio
             self.max_mask_ratio = args.max_mask_ratio
 
         # Tokens settings
+        # 用字典存储不同类型的token，使用ParameterDict使其可训练
         self.num_task = len(configs_list)
         self.prompt_tokens = nn.ParameterDict({})
         self.mask_tokens = nn.ParameterDict({})
@@ -580,9 +586,13 @@ class Model(nn.Module):
         self.category_tokens = nn.ParameterDict({})
 
         for i in range(self.num_task):
+            #configs_list为[[task_name, task_config]...]
             dataset_name = configs_list[i][1]['dataset']
             task_data_name = configs_list[i][0]
+
+            #按照数据集名称生成prompt_tokens
             if dataset_name not in self.prompt_tokens:
+                #prompt_token的shape为[1, enc_in, prompt_num, d_model]， enc_in实际上是变量数
                 self.prompt_tokens[dataset_name] = torch.zeros(
                     1, configs_list[i][1]['enc_in'], args.prompt_num, args.d_model)
                 torch.nn.init.normal_(
