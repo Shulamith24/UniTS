@@ -1,0 +1,92 @@
+{
+  "os": "Linux-5.19.0-46-generic-x86_64-with-glibc2.35",
+  "python": "CPython 3.11.11",
+  "startedAt": "2025-04-01T10:46:20.759474Z",
+  "args": [
+    "--is_training",
+    "1",
+    "--model_id",
+    "UniTS_pretrain_x128",
+    "--model",
+    "UniTS",
+    "--lradj",
+    "prompt_tuning",
+    "--prompt_num",
+    "10",
+    "--patch_len",
+    "16",
+    "--stride",
+    "16",
+    "--e_layers",
+    "3",
+    "--d_model",
+    "128",
+    "--des",
+    "Exp",
+    "--itr",
+    "1",
+    "--learning_rate",
+    "3e-3",
+    "--weight_decay",
+    "0",
+    "--prompt_tune_epoch",
+    "2",
+    "--train_epochs",
+    "0",
+    "--acc_it",
+    "32",
+    "--debug",
+    "online",
+    "--project_name",
+    "prompt_tuning",
+    "--clip_grad",
+    "100",
+    "--pretrained_weight",
+    "auto",
+    "--task_data_config_path",
+    "data_provider/multi_task.yaml"
+  ],
+  "program": "/root/data1/UniTS/run.py",
+  "codePath": "run.py",
+  "git": {
+    "remote": "https://github.com/Shulamith24/UniTS",
+    "commit": "d72f86440a1c4cc5591dc8a27cc7da15cefadcd1"
+  },
+  "email": "winging019@gmail.com",
+  "root": "/root/data1/UniTS",
+  "host": "e658cdb56b27",
+  "executable": "/opt/conda/envs/unitts/bin/python3.11",
+  "codePathLocal": "run.py",
+  "cpu_count": 24,
+  "cpu_count_logical": 32,
+  "gpu": "NVIDIA GeForce RTX 4090",
+  "gpu_count": 2,
+  "disk": {
+    "/": {
+      "total": "1967317549056",
+      "used": "1701988761600"
+    }
+  },
+  "memory": {
+    "total": "134823129088"
+  },
+  "cpu": {
+    "count": 24,
+    "countLogical": 32
+  },
+  "gpu_nvidia": [
+    {
+      "name": "NVIDIA GeForce RTX 4090",
+      "memoryTotal": "25757220864",
+      "cudaCores": 16384,
+      "architecture": "Ada"
+    },
+    {
+      "name": "NVIDIA GeForce RTX 4090",
+      "memoryTotal": "24146608128",
+      "cudaCores": 16384,
+      "architecture": "Ada"
+    }
+  ],
+  "cudaVersion": "12.0"
+}

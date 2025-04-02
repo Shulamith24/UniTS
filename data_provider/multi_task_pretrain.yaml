@@ -4,7 +4,7 @@ task_dataset:
     dataset_name: nn5_daily_without_missing
     dataset: NN5
     data: gluonts
-    root_path: ../dataset/gluonts
+    root_path: /root/data1/UniTS/dataset/gluonts
     seq_len: 224
     label_len: 0
     pred_len: 0
@@ -19,7 +19,7 @@ task_dataset:
     dataset: ECL
     data: custom
     embed: timeF
-    root_path: ../dataset/electricity/
+    root_path: /root/data1/UniTS/dataset/electricity/
     data_path: electricity.csv
     features: M
     seq_len: 192
@@ -34,7 +34,7 @@ task_dataset:
     dataset: ECL
     data: custom
     embed: timeF
-    root_path: ../dataset/electricity/
+    root_path: /root/data1/UniTS/dataset/electricity/
     data_path: electricity.csv
     features: M
     seq_len: 288
@@ -49,7 +49,7 @@ task_dataset:
     dataset: ECL
     data: custom
     embed: timeF
-    root_path: ../dataset/electricity/
+    root_path: /root/data1/UniTS/dataset/electricity/
     data_path: electricity.csv
     features: M
     seq_len: 432
@@ -64,7 +64,7 @@ task_dataset:
     dataset: ECL
     data: custom
     embed: timeF
-    root_path: ../dataset/electricity/
+    root_path: /root/data1/UniTS/dataset/electricity/
     data_path: electricity.csv
     features: M
     seq_len: 816
@@ -79,7 +79,7 @@ task_dataset:
     dataset: ETTh1
     data: ETTh1
     embed: timeF
-    root_path: ../dataset/ETT-small/
+    root_path: /root/data1/UniTS/dataset/ETT-small/
     data_path: ETTh1.csv
     features: M
     seq_len: 192
@@ -94,7 +94,7 @@ task_dataset:
     dataset: ETTh1
     data: ETTh1
     embed: timeF
-    root_path: ../dataset/ETT-small/
+    root_path: /root/data1/UniTS/dataset/ETT-small/
     data_path: ETTh1.csv
     features: M
     seq_len: 288
@@ -109,7 +109,7 @@ task_dataset:
     dataset: ETTh1
     data: ETTh1
     embed: timeF
-    root_path: ../dataset/ETT-small/
+    root_path: /root/data1/UniTS/dataset/ETT-small/
     data_path: ETTh1.csv
     features: M
     seq_len: 432
@@ -124,7 +124,7 @@ task_dataset:
     dataset: ETTh1
     data: ETTh1
     embed: timeF
-    root_path: ../dataset/ETT-small/
+    root_path: /root/data1/UniTS/dataset/ETT-small/
     data_path: ETTh1.csv
     features: M
     seq_len: 816    
@@ -139,7 +139,7 @@ task_dataset:
     dataset: Exchange
     data: custom
     embed: timeF
-    root_path: ../dataset/exchange_rate/
+    root_path: /root/data1/UniTS/dataset/exchange_rate/
     data_path: exchange_rate.csv
     features: M
     seq_len: 288
@@ -154,7 +154,7 @@ task_dataset:
     dataset: Exchange
     data: custom
     embed: timeF
-    root_path: ../dataset/exchange_rate/
+    root_path: /root/data1/UniTS/dataset/exchange_rate/
     data_path: exchange_rate.csv
     features: M
     seq_len: 432
@@ -169,7 +169,7 @@ task_dataset:
     dataset: ILI
     data: custom
     embed: timeF
-    root_path: ../dataset/illness/
+    root_path: /root/data1/UniTS/dataset/illness/
     data_path: national_illness.csv
     features: M
     seq_len: 96
@@ -184,7 +184,7 @@ task_dataset:
     dataset: Traffic
     data: custom
     embed: timeF
-    root_path: ../dataset/traffic/
+    root_path: /root/data1/UniTS/dataset/traffic/
     data_path: traffic.csv
     features: M
     seq_len: 192
@@ -199,7 +199,7 @@ task_dataset:
     dataset: Traffic
     data: custom
     embed: timeF
-    root_path: ../dataset/traffic/
+    root_path: /root/data1/UniTS/dataset/traffic/
     data_path: traffic.csv
     features: M
     seq_len: 288
@@ -214,7 +214,7 @@ task_dataset:
     dataset: Traffic
     data: custom
     embed: timeF
-    root_path: ../dataset/traffic/
+    root_path: /root/data1/UniTS/dataset/traffic/
     data_path: traffic.csv
     features: M
     seq_len: 432
@@ -229,7 +229,7 @@ task_dataset:
     dataset: Traffic
     data: custom
     embed: timeF
-    root_path: ../dataset/traffic/
+    root_path: /root/data1/UniTS/dataset/traffic/
     data_path: traffic.csv
     features: M
     seq_len: 816
@@ -244,7 +244,7 @@ task_dataset:
     dataset: Weather
     data: custom
     embed: timeF
-    root_path: ../dataset/weather/
+    root_path: /root/data1/UniTS/dataset/weather/
     data_path: weather.csv
     features: M
     seq_len: 192
@@ -259,7 +259,7 @@ task_dataset:
     dataset: Weather
     data: custom
     embed: timeF
-    root_path: ../dataset/weather/
+    root_path: /root/data1/UniTS/dataset/weather/
     data_path: weather.csv
     features: M
     seq_len: 288
@@ -274,7 +274,7 @@ task_dataset:
     dataset: Weather
     data: custom
     embed: timeF
-    root_path: ../dataset/weather/
+    root_path: /root/data1/UniTS/dataset/weather/
     data_path: weather.csv
     features: M
     seq_len: 432
@@ -289,7 +289,7 @@ task_dataset:
     dataset: Weather
     data: custom
     embed: timeF
-    root_path: ../dataset/weather/
+    root_path: /root/data1/UniTS/dataset/weather/
     data_path: weather.csv
     features: M
     seq_len: 816
@@ -304,7 +304,7 @@ task_dataset:
     dataset: Heartbeat
     data: UEA
     embed: timeF
-    root_path: ../dataset/Heartbeat/
+    root_path: /root/data1/UniTS/dataset/Heartbeat/
     seq_len: 405
     label_len: 0
     pred_len: 0
@@ -317,7 +317,7 @@ task_dataset:
     dataset: JapaneseVowels
     data: UEA
     embed: timeF
-    root_path: ../dataset/JapaneseVowels/
+    root_path: /root/data1/UniTS/dataset/JapaneseVowels/
     seq_len: 29
     label_len: 0
     pred_len: 0
@@ -330,7 +330,7 @@ task_dataset:
     dataset: PEMS-SF
     data: UEA
     embed: timeF
-    root_path: ../dataset/PEMS-SF/
+    root_path: /root/data1/UniTS/dataset/PEMS-SF/
     seq_len: 144
     label_len: 0
     pred_len: 0
@@ -343,7 +343,7 @@ task_dataset:
     dataset: SelfRegulationSCP2
     data: UEA
     embed: timeF
-    root_path: ../dataset/SelfRegulationSCP2/
+    root_path: /root/data1/UniTS/dataset/SelfRegulationSCP2/
     seq_len: 1152
     label_len: 0
     pred_len: 0
@@ -356,7 +356,7 @@ task_dataset:
     dataset: SpokenArabicDigits
     data: UEA
     embed: timeF
-    root_path: ../dataset/SpokenArabicDigits/
+    root_path: /root/data1/UniTS/dataset/SpokenArabicDigits/
     seq_len: 93
     label_len: 0
     pred_len: 0
@@ -369,7 +369,7 @@ task_dataset:
     dataset: UWaveGestureLibrary
     data: UEA
     embed: timeF
-    root_path: ../dataset/UWaveGestureLibrary/
+    root_path: /root/data1/UniTS/dataset/UWaveGestureLibrary/
     seq_len: 315
     label_len: 0
     pred_len: 0
@@ -382,7 +382,7 @@ task_dataset:
     dataset: ECG5000
     data: UEA
     embed: timeF
-    root_path: ../dataset/UCR/ECG5000
+    root_path: /root/data1/UniTS/dataset/UCR/ECG5000
     seq_len: 140
     label_len: 0
     pred_len: 0
@@ -395,7 +395,7 @@ task_dataset:
     dataset: NonInvasiveFetalECGThorax1
     data: UEA
     embed: timeF
-    root_path: ../dataset/UCR/NonInvasiveFetalECGThorax1
+    root_path: /root/data1/UniTS/dataset/UCR/NonInvasiveFetalECGThorax1
     seq_len: 750
     label_len: 0
     pred_len: 0
@@ -408,7 +408,7 @@ task_dataset:
     dataset: Blink
     data: UEA
     embed: timeF
-    root_path: ../dataset/Blink
+    root_path: /root/data1/UniTS/dataset/Blink
     seq_len: 510
     label_len: 0
     pred_len: 0
@@ -421,7 +421,7 @@ task_dataset:
     dataset: FaceDetection
     data: UEA
     embed: timeF
-    root_path: ../dataset/FaceDetection
+    root_path: /root/data1/UniTS/dataset/FaceDetection
     seq_len: 62
     label_len: 0
     pred_len: 0
@@ -434,7 +434,7 @@ task_dataset:
     dataset: ElectricDevices
     data: UEA
     embed: timeF
-    root_path: ../dataset/UCR/ElectricDevices
+    root_path: /root/data1/UniTS/dataset/UCR/ElectricDevices
     seq_len: 96
     label_len: 0
     pred_len: 0
@@ -447,7 +447,7 @@ task_dataset:
     dataset: Trace
     data: UEA
     embed: timeF
-    root_path: ../dataset/UCR/Trace
+    root_path: /root/data1/UniTS/dataset/UCR/Trace
     seq_len: 275
     label_len: 0
     pred_len: 0
@@ -460,7 +460,7 @@ task_dataset:
     dataset: FordB
     data: UEA
     embed: timeF
-    root_path: ../dataset/UCR/FordB
+    root_path: /root/data1/UniTS/dataset/UCR/FordB
     seq_len: 500
     label_len: 0
     pred_len: 0
@@ -473,7 +473,7 @@ task_dataset:
     dataset: MotionSenseHAR
     data: UEA
     embed: timeF
-    root_path: ../dataset/MotionSenseHAR
+    root_path: /root/data1/UniTS/dataset/MotionSenseHAR
     seq_len: 200
     label_len: 0
     pred_len: 0
@@ -486,7 +486,7 @@ task_dataset:
     dataset: EMOPain
     data: UEA
     embed: timeF
-    root_path: ../dataset/EMOPain
+    root_path: /root/data1/UniTS/dataset/EMOPain
     seq_len: 180
     label_len: 0
     pred_len: 0
@@ -499,7 +499,7 @@ task_dataset:
     dataset: Chinatown
     data: UEA
     embed: timeF
-    root_path: ../dataset/UCR/Chinatown
+    root_path: /root/data1/UniTS/dataset/UCR/Chinatown
     seq_len: 24
     label_len: 0
     pred_len: 0
@@ -512,7 +512,7 @@ task_dataset:
     dataset: MelbournePedestrian
     data: UEA
     embed: timeF
-    root_path: ../dataset/UCR/MelbournePedestrian
+    root_path: /root/data1/UniTS/dataset/UCR/MelbournePedestrian
     seq_len: 24
     label_len: 0
     pred_len: 0
@@ -525,7 +525,7 @@ task_dataset:
     dataset: SharePriceIncrease
     data: UEA
     embed: timeF
-    root_path: ../dataset/SharePriceIncrease
+    root_path: /root/data1/UniTS/dataset/SharePriceIncrease
     seq_len: 60
     label_len: 0
     pred_len: 0

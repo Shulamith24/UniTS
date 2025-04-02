@@ -77,8 +77,8 @@ if __name__ == '__main__':
                         default='enabled', help='disabled')
     parser.add_argument('--clip_grad', type=float, default=None, help="""Maximal parameter
         gradient norm if using gradient clipping.""")
-    parser.add_argument('--checkpoints', type=str,
-                        default='./checkpoints/', help='location of model checkpoints')
+    parser.add_argument('--   ', type=str,
+                        default='/root/data1/UniTS/checkpoints/', help='location of model checkpoints')
 
     parser.add_argument("--memory_check", action="store_true", default=True)
     parser.add_argument("--large_model", action="store_true", default=True)     #是否使用大模型设置

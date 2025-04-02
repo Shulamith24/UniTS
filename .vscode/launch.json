@@ -1,0 +1,72 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        
+      {
+        "name": "Pretrain Debug",
+        "type": "python",
+        "request": "launch",
+        "program": "run_pretrain.py",
+        "args": [
+          "--is_training", "1",
+          "--model_id", "UniTS_pretrain_x128",
+          "--model", "UniTS",
+          "--prompt_num", "10",
+          "--patch_len", "16",
+          "--stride", "16",
+          "--e_layers", "3",
+          "--d_model", "128",
+          "--des", "Exp",
+          "--acc_it", "128",
+          "--batch_size", "32",
+          "--learning_rate", "5e-5",
+          "--min_lr", "1e-4",
+          "--weight_decay", "5e-6",
+          "--train_epochs", "10",
+          "--warmup_epochs", "0",
+          "--min_keep_ratio", "0.5",
+          "--right_prob", "0.5",
+          "--min_mask_ratio", "0.7",
+          "--max_mask_ratio", "0.8",
+          "--debug", "online",
+          "--task_data_config_path", "data_provider/multi_task_pretrain.yaml"
+        ],
+        "env": {
+          "CUDA_VISIBLE_DEVICES": "0" // 单卡调试
+        }
+      },
+      {
+        "name": "Prompt Tuning Debug",
+        "type": "python",
+        "request": "launch",
+        "program": "run.py",
+        "args": [
+          "--is_training", "1",
+          "--model_id", "UniTS_pretrain_x128",
+          "--model", "UniTS",
+          "--lradj", "prompt_tuning",
+          "--prompt_num", "10",
+          "--patch_len", "16",
+          "--stride", "16",
+          "--e_layers", "3",
+          "--d_model", "128",
+          "--des", "Exp",
+          "--itr", "1",
+          "--learning_rate", "3e-3",
+          "--weight_decay", "0",
+          "--prompt_tune_epoch", "2",
+          "--train_epochs", "0",
+          "--acc_it", "32",
+          "--debug", "online",
+          "--project_name", "prompt_tuning",
+          "--clip_grad", "100",
+          "--pretrained_weight", "auto",
+          "--task_data_config_path", "data_provider/multi_task.yaml"
+        ],
+        "env": {
+          "CUDA_VISIBLE_DEVICES": "0",
+          "MASTER_PORT": "29500" // 固定端口
+        }
+      }
+    ]
+  }

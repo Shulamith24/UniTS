@@ -17,18 +17,20 @@ def calculate_unfold_output_length(input_length, size, step):
     return num_windows
 
 
-#跨序列注意力机制，允许两个序列之间进行注意力计算
+#跨序列注意力机制，允许两个序列之间进行注意力计算，输入的x[batch_size,seq_len,d_model]
+#在调用时可输入query，实现两个序列之间的跨注意力计算
+#不输入query时，实现类似自注意力的计算
 class CrossAttention(nn.Module):
     def __init__(
             self,
-            dim,
-            num_heads=8,
-            qkv_bias=False,
-            qk_norm=False,
-            attn_drop=0.,
-            proj_drop=0.,
+            dim,    #输入特征维度
+            num_heads=8,    #8头
+            qkv_bias=False,     #是否在WKV投影中使用bias
+            qk_norm=False,      #是否对QK归一化
+            attn_drop=0.,       #注意力权重的的dropout率
+            proj_drop=0.,       #输出投影dropout
             norm_layer=nn.LayerNorm,
-            var_num=None,
+            var_num=None,       #变量数量
     ):
         super().__init__()
         assert dim % num_heads == 0, 'dim should be divisible by num_heads'
@@ -209,7 +211,8 @@ class LearnablePositionalEmbedding(nn.Module):
         return self.pe[:, :, offset:offset+x.size(2)]
 
 
-#实现序列内的自注意力，捕捉时间维度上的依赖关系。
+#输入为[batch_size*n_vars, seq_len, d_model]
+#forward中先通过线性层生成qkv，计算自注意力。输出和输入shape相同
 class SeqAttention(nn.Module):
 
     def __init__(
@@ -493,6 +496,8 @@ class PatchEmbedding(nn.Module):
         return self.dropout(x), n_vars
 
 
+
+"""对于输入的x，reshape，取最后一个CLS_token,通过cross_att"""
 class CLSHead(nn.Module):
     def __init__(self, d_model, head_dropout=0):
         super().__init__()
@@ -510,14 +515,17 @@ class CLSHead(nn.Module):
         B, V, L, C = x.shape
         x = x.view(-1, L, C)
         cls_token = x[:, -1:]
+        #通过跨注意力函数，对x和cls_token进行注意力运算，允许cls_token关注整个序列的信息
         cls_token = self.cross_att(x, query=cls_token)
         cls_token = cls_token.reshape(B, V, -1, C)
 
+        #再经过MLPBlock进一步处理，得到[B,V,1,C(d_model)]，预训练直接返回
         cls_token = self.mlp(cls_token)
         if return_feature:
             return cls_token
         m = category_token.shape[2]
         cls_token = cls_token.expand(B, V, m, C)
+        #类别原型距离计算。
         distance = torch.einsum('nvkc,nvmc->nvm', cls_token, category_token)
 
         distance = distance.mean(dim=1)
@@ -765,6 +773,8 @@ class Model(nn.Module):
             x, n_vars, prefix_prompt, task_prompt, task_prompt_num, task_name='forecast')
 
         seq_token_len = x.shape[-2]-prefix_prompt.shape[2]
+        
+        #在这里经过backbone模块
         x = self.backbone(x, prefix_prompt.shape[2], seq_token_len)
 
         x = self.forecast_head(
@@ -958,28 +968,39 @@ class Model(nn.Module):
             mask_seq = self.get_mask_seq(mask, seq_len+padding)
             mask_seq = mask_seq[:, :seq_len]
         this_function_prompt = cls_token.repeat(x.shape[0], 1, 1, 1)
+
+        """prefix_prompt [1, enc_in, prompt_num, d_model]
+            this_prompt[batch_size,enc_in,prompt_num,d_model]
+            this_function_prompt:[batch_size, enc_in, 1, d_model]"""
         x = torch.cat((this_prompt, x, this_function_prompt), dim=2)
-        #最后连接CLStoken
+        #最后连接一个CLStoken
+        #连接之后经过backbone模块
         x = self.backbone(x, prefix_prompt.shape[2], seq_token_len)
 
         #双路径重建输出
         if enable_mask:
-            #forecast_head == GEN tower,输出mask_dec_out[B, seq_len, V]
+            # x = [batch_size, 变量数, token序列长度, d_model]
+            #forecast_head == GEN tower
+            # 输出 [batch_size, seq_len+padding, 变量数]（已转换回时间序列格式）
             mask_dec_out = self.forecast_head(
                 x[:, :, :-1], seq_len+padding, seq_token_len)
-            
             mask_dec_out = mask_dec_out[:, :seq_len]
-            # De-Normalization from Non-stationary Transformer
+            
+            # 对预测输出反标准化，还原到原始数据尺度
             mask_dec_out = mask_dec_out * \
                 (stdev[:, 0, :].unsqueeze(1).repeat(
                     1, mask_dec_out.shape[1], 1))
             mask_dec_out = mask_dec_out + \
                 (means[:, 0, :].unsqueeze(1).repeat(
                     1, mask_dec_out.shape[1], 1))
+            
+            #使用CLS_HEAD提取分类特征。[batch_size, 变量数, 1, d_model]。
             cls_dec_out = self.cls_head(x, return_feature=True)
-            # detach grad of the forecasting on tokens
+            # detach样本token，连接cls_token，只更新cls_token
             fused_dec_out = torch.cat(
                 (cls_dec_out, x[:, :, self.prompt_num:-1].detach()), dim=2)
+            
+            #使用预测头进行另一种预测[batch_size,seq_len+padding,num_vars]
             cls_dec_out = self.pretrain_head(
                 fused_dec_out, seq_len+padding, seq_token_len)
             cls_dec_out = cls_dec_out[:, :seq_len]
@@ -990,6 +1011,7 @@ class Model(nn.Module):
                 (means[:, 0, :].unsqueeze(1).repeat(
                     1, cls_dec_out.shape[1], 1))
 
+            #对cls_token预测结果进行反标准化，输出形状仍为[batch_size, seq_len, 变量数]
             return cls_dec_out, mask_dec_out, mask_seq
         else:
             return cls_dec_out

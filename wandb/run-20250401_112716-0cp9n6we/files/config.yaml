@@ -1,0 +1,109 @@
+_wandb:
+    value:
+        cli_version: 0.19.8
+        m: []
+        python_version: 3.11.10
+        t:
+            "1":
+                - 1
+                - 5
+                - 53
+                - 55
+            "2":
+                - 1
+                - 5
+                - 53
+                - 55
+            "3":
+                - 13
+                - 16
+                - 23
+                - 55
+            "4": 3.11.10
+            "5": 0.19.8
+            "8":
+                - 5
+            "12": 0.19.8
+            "13": linux-x86_64
+acc_it:
+    value: 128
+batch_size:
+    value: 32
+beta2:
+    value: 0.999
+checkpoints:
+    value: ./checkpoints/
+clip_grad:
+    value: null
+d_model:
+    value: 128
+data:
+    value: All
+debug:
+    value: online
+des:
+    value: Exp
+dist_url:
+    value: env://
+dropout:
+    value: 0.1
+e_layers:
+    value: 3
+eps:
+    value: 1e-08
+features:
+    value: M
+fix_seed:
+    value: null
+freq:
+    value: h
+is_training:
+    value: 1
+itr:
+    value: 1
+large_model:
+    value: true
+learning_rate:
+    value: 5e-05
+local_rank:
+    value: null
+max_mask_ratio:
+    value: 0.8
+memory_check:
+    value: true
+min_keep_ratio:
+    value: 0.5
+min_lr:
+    value: 0.0001
+min_mask_ratio:
+    value: 0.7
+model:
+    value: UniTS
+model_id:
+    value: UniTS_pretrain_x128
+n_heads:
+    value: 8
+num_workers:
+    value: 0
+patch_len:
+    value: 16
+prompt_num:
+    value: 10
+right_prob:
+    value: 0.5
+stride:
+    value: 16
+subsample_pct:
+    value: null
+target:
+    value: OT
+task_data_config_path:
+    value: data_provider/multi_task_pretrain.yaml
+task_name:
+    value: ALL_task
+train_epochs:
+    value: 10
+warmup_epochs:
+    value: 0
+weight_decay:
+    value: 5e-06
