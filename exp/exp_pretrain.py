@@ -3,7 +3,7 @@ from utils.tools import cosine_scheduler
 from utils.tools import NativeScalerWithGradNormCount as NativeScaler
 from utils.losses import UnifiedMaskRecLoss
 from utils.dataloader import BalancedDataLoaderIterator
-from utils.ddp import is_main_process, get_world_size
+from utils.ddp import is_main_process, get_world_size, is_dist_avail_and_initialized
 
 import torch
 import torch.nn as nn
@@ -20,6 +20,7 @@ import importlib
 import sys
 
 warnings.filterwarnings('ignore')
+
 
 #重写print函数，使其能同时输出到终端和保存到日志文件
 def custom_print_decorator(func):
@@ -43,7 +44,7 @@ def custom_print_decorator(func):
 # replace print to save all print into log files
 print = custom_print_decorator(print)
 
-# 读取YAML格式的配置文件，获取任务和数据集的配置信息。配置文件包含了各种任务（如预测、分类等）的数据集参数。
+# 读取YAML格式的配置文件为字典，获取任务和数据集的配置信息。配置文件包含了各种任务（如预测、分类等）的数据集参数。
 def read_task_data_config(config_path):
     with open(config_path, 'r') as config_file:
         config = yaml.load(config_file, Loader=yaml.FullLoader)
@@ -51,13 +52,13 @@ def read_task_data_config(config_path):
     return task_dataset_config
 
 
-#将读取到的配置文件转换为列表格式，为每个任务设置默认的batch大小
+#将读取到的字典转换为列表格式，为每个任务设置默认的batch大小
 def get_task_data_config_list(task_data_config, default_batch_size=None):
     task_data_config_list = []
 
     for task_name, task_config in task_data_config.items():
-        task_config['max_batch'] = default_batch_size
-        task_data_config_list.append([task_name, task_config])
+        task_config['max_batch'] = default_batch_size       #为单个任务新加一个属性为max_batch，为超参数，即batch，但实际上采用了多小batch更新梯度的方式
+        task_data_config_list.append([task_name, task_config])#[['NN5_p112', {...}],[,]...]
 
     return task_data_config_list
 
@@ -76,21 +77,30 @@ class Exp_All_Task(object):
 
         self.args = args
         self.task_data_config = read_task_data_config(
-            self.args.task_data_config_path)
-        #返回每个任务的[task_name, task_config]的列表
+            self.args.task_data_config_path)        #读取多任务的任务描述yaml文件为字典
+        #[['NN5_p112', {...}],[,]...]
         self.task_data_config_list = get_task_data_config_list(
             self.task_data_config, default_batch_size=self.args.batch_size)
-        device_id = dist.get_rank() % torch.cuda.device_count()
-        print("this device_id:", device_id)
-        self.device_id = device_id
+        
+        # 支持单卡模式
+        if self.args.single_gpu:
+            self.device_id = 0
+        else:
+            device_id = dist.get_rank() % torch.cuda.device_count()
+            self.device_id = device_id
+        
+        print("this device_id:", self.device_id)
 
     def _build_model(self, ddp=True):       #ddp:分布式数据并行
         module = importlib.import_module("models."+self.args.model) #导入models.UniTS
         model = module.Model(
             self.args, self.task_data_config_list, pretrain=True).to(self.device_id)
-        if ddp:
+        
+        # 当使用单卡模式或ddp=False时，不使用DistributedDataParallel
+        if ddp and not self.single_gpu:
             model = nn.parallel.DistributedDataParallel(
                 model, device_ids=[self.device_id], find_unused_parameters=True)
+        
         return model.to(self.device_id)
 
     #返回所有数据集对应的dataset和dataloader列表
@@ -102,8 +112,12 @@ class Exp_All_Task(object):
             if task_config['data'] == 'UEA' and flag == 'val':
                 # TODO strange that no val set is used for classification. Set to test set for val
                 flag = 'test'
+            
+            # 根据是否单卡调试模式决定分布式加载
+            use_ddp = not self.single_gpu
             data_set, data_loader = data_provider(
-                self.args, task_config, flag, ddp=True)
+                self.args, task_config, flag, ddp=use_ddp)
+            
             data_set_list.append(data_set)
             data_loader_list.append(data_loader)
         return data_set_list, data_loader_list
@@ -122,14 +136,16 @@ class Exp_All_Task(object):
         return model_optim
 
     def train(self, setting):
+        #为实验创建一个唯一的存储目录，用于保存模型的检查点文件和训练日志
         path = os.path.join(self.args.checkpoints, setting)
         if not os.path.exists(path) and is_main_process():
             os.makedirs(path)
         self.path = path
 
-        #同步所有GPU
-        torch.cuda.synchronize()
-        dist.barrier()
+        # 只在分布式训练时进行同步
+        if not self.single_gpu:
+            torch.cuda.synchronize()
+            dist.barrier()
 
         # 输入dataloader列表返回一个抽样式dataloader，每次调用next返回一个样本和对应的数据集标识
         _, train_loader_list = self._get_data(flag='train')
@@ -141,9 +157,10 @@ class Exp_All_Task(object):
             self.memory_check(data_loader_cycle)
             torch.cuda.empty_cache()
         
-        #再次同步GPU
-        torch.cuda.synchronize()
-        dist.barrier()
+        # 只在分布式训练时进行同步
+        if not self.single_gpu:
+            torch.cuda.synchronize()
+            dist.barrier()
 
         # M构建模型
         self.model = self._build_model()
@@ -173,7 +190,8 @@ class Exp_All_Task(object):
 
             print("Epoch: {0}, Steps: {1} | Avg Train Loss: {2:.7f}".format(
                 epoch + 1, train_steps, train_loss), folder=self.path)
-            if is_main_process():
+            # wandb log配置
+            if is_main_process() and self.args.debug != 'disabled':
                 wandb.log({'train_loss_avg': train_loss})
 
             if is_main_process():
@@ -253,7 +271,8 @@ class Exp_All_Task(object):
             if torch.cuda.memory_reserved(current_device) > 30*1e9:
                 torch.cuda.empty_cache()
 
-            if is_main_process():
+            # wandb 往log中写入loss
+            if is_main_process() and self.args.debug != 'disabled':
                 wandb_loss_dict = {
                     'norm': norm_value if norm_value is not None else 0,
                     'train_cls_loss_'+self.task_data_config_list[task_id][0]: loss_dict['cls_loss'].item(),

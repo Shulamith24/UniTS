@@ -5,7 +5,7 @@ from utils.metrics import metric
 from utils.losses import mape_loss, mase_loss, smape_loss
 from utils.dataloader import BalancedDataLoaderIterator
 from utils.layer_decay import param_groups_lrd
-from utils.ddp import get_world_size, is_main_process, gather_tensors_from_all_gpus
+from utils.ddp import get_world_size, is_main_process, gather_tensors_from_all_gpus, is_dist_avail_and_initialized
 
 from sklearn.metrics import precision_recall_fscore_support
 from sklearn.metrics import accuracy_score
@@ -163,8 +163,15 @@ class Exp_All_Task(object):
         else:
             self.task_data_config = self.ori_task_data_config
             self.task_data_config_list = self.ori_task_data_config_list
-        device_id = dist.get_rank() % torch.cuda.device_count()
-        self.device_id = device_id
+        
+        # 支持单卡模式
+        self.single_gpu = not is_dist_avail_and_initialized()
+        if self.single_gpu:
+            self.device_id = 0
+        else:
+            device_id = dist.get_rank() % torch.cuda.device_count()
+            self.device_id = device_id
+            
         print("device id", self.device_id)
         self.model = self._build_model()
 

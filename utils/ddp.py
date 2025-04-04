@@ -2,45 +2,55 @@ import torch.distributed as dist
 import torch
 
 
+#检查分布式环境是否可用且已经初始化
 def is_dist_avail_and_initialized():
-    if not dist.is_available():
+    if not dist.is_available():     #如果分布式不可用(GPU不支持NCCL后端)
         return False
-    if not dist.is_initialized():
+    if not dist.is_initialized():   #如果分布式进程组未初始化
         return False
     return True
 
 
-def get_world_size():
+def get_world_size():               #分布式训练中参与的进程数(GPU数量)
     if not is_dist_avail_and_initialized():
         return 1
     return dist.get_world_size()
 
 
-def get_rank():
-    if not is_dist_avail_and_initialized():
+def get_rank():                     #获取当前进程的rank
+    if not is_dist_avail_and_initialized(): #如果没初始化成功，当前进程就是主进程
         return 0
-    return dist.get_rank()
+    return dist.get_rank()          #否则获取当前进程的rank
 
 
-def is_main_process():
+def is_main_process():              #判断当前进程是否是主进程
     return get_rank() == 0
 
 
-def init_distributed_mode(args):
+def init_distributed_mode(args):    #初始化分布式训练模式，添加单卡模式选项
+    if args.single_gpu:
+        print("使用单卡模式进行调试")
+        # 单卡模式不初始化分布式训练
+        device_id = 0
+        torch.cuda.set_device(device_id)
+        torch.cuda.empty_cache()
+        print(f"使用GPU {device_id} 进行单卡调试。")
+        return
 
-    dist.init_process_group(
+    # 原有的分布式训练初始化代码
+    dist.init_process_group(        #进程组初始化
         backend="nccl",
     )
-    rank = dist.get_rank()
-    torch.cuda.set_device(rank)
-    torch.cuda.empty_cache()
+    rank = dist.get_rank()          #获取当前进程rank，将当前进程绑定到一个GPU
+    torch.cuda.set_device(rank)     
+    torch.cuda.empty_cache()        ##清空GPU缓存
     print(f"Start running basic DDP on rank {rank}.")
 
-    dist.barrier()
+    dist.barrier()                  #在所有进程同步位置
     setup_for_distributed(rank == 0)
 
 
-def setup_for_distributed(is_master):
+def setup_for_distributed(is_master):   #设置分布式训练环境，确保只有主进程打印输出
     """
     This function disables printing when not in master process
     """

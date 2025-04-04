@@ -49,6 +49,9 @@ if __name__ == '__main__':
         distributed training; see https://pytorch.org/docs/stable/distributed.html""")
     parser.add_argument('--num_workers', type=int, default=0,
                         help='data loader num workers')
+    # 添加单卡调试模式的参数
+    parser.add_argument("--single_gpu", action="store_true", default=False, 
+                        help="使用单卡调试模式，不使用分布式训练")
 
     # optimization
     parser.add_argument('--itr', type=int, default=1, help='experiments times')
@@ -77,7 +80,7 @@ if __name__ == '__main__':
                         default='enabled', help='disabled')
     parser.add_argument('--clip_grad', type=float, default=None, help="""Maximal parameter
         gradient norm if using gradient clipping.""")
-    parser.add_argument('--   ', type=str,
+    parser.add_argument('--checkpoints', type=str,
                         default='/root/data1/UniTS/checkpoints/', help='location of model checkpoints')
 
     parser.add_argument("--memory_check", action="store_true", default=True)
@@ -94,6 +97,8 @@ if __name__ == '__main__':
     parser.add_argument("--prompt_num", type=int, default=10)       #提示token的数量
 
     args = parser.parse_args()
+    # 根据命令行参数决定是否使用单卡模式
+    
     init_distributed_mode(args)
 
     print('Args in experiment:')
@@ -113,18 +118,20 @@ if __name__ == '__main__':
         args.des)
 
     if is_main_process():
-        wandb.init(
-            name=exp_name,
-            # set the wandb project where this run will be logged
-            project="pretrain",
-            # track hyperparameters and run metadata
-            config=args,
-            mode=args.debug,
-        )
+        # 只有在非调试模式或调试模式设置为online时才初始化wandb
+        if args.debug != 'disabled':
+            wandb.init(
+                name=exp_name,
+                # set the wandb project where this run will be logged
+                project="pretrain",
+                # track hyperparameters and run metadata
+                config=args,
+                mode=args.debug,
+            )
     Exp = Exp_All_Task_SSL
 
     if args.is_training:
-        for ii in range(args.itr):
+        for ii in range(args.itr):  #总共的实验次数，epoch是每次实验对数据重复训几次
             # setting record of experiments
             setting = '{}_{}_{}_{}_ft{}_dm{}_el{}_{}_{}'.format(
                 args.task_name,

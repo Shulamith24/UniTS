@@ -42,6 +42,8 @@ if __name__ == '__main__':
                         help='data loader num workers')
     parser.add_argument("--memory_check", action="store_true", default=True)
     parser.add_argument("--large_model", action="store_true", default=True)
+    parser.add_argument("--single_gpu", action="store_true", default=False, 
+                        help="使用单卡调试模式，不使用分布式训练")
 
     # optimization
     parser.add_argument('--itr', type=int, default=1, help='experiments times')
@@ -111,7 +113,7 @@ if __name__ == '__main__':
                         type=str, default=None, help='unify')
 
     args = parser.parse_args()
-    init_distributed_mode(args)
+    init_distributed_mode(args, single_gpu=args.single_gpu)
     if args.fix_seed is not None:
         random.seed(args.fix_seed)
         torch.manual_seed(args.fix_seed)
@@ -135,12 +137,12 @@ if __name__ == '__main__':
 
     if is_main_process():
         wandb.init(
-            name=exp_name,
-            # set the wandb project where this run will be logged
+            name=exp_name,  #运行的名称，用于在wandb界面中区分不同的实验
+            # 项目名称，用于将多个运行归类到一个项目下
             project=args.project_name,
             # track hyperparameters and run metadata
-            config=args,
-            mode=args.debug,
+            config=args,    #记录超参数和配置
+            mode=args.debug,    #控制是否将数据集上传到wandb服务器，在调试时禁用上传
         )
 
     Exp = Exp_All_Task_SUP
