@@ -3,10 +3,9 @@ from utils.tools import cosine_scheduler
 from utils.tools import NativeScalerWithGradNormCount as NativeScaler
 from utils.losses import UnifiedMaskRecLoss
 from utils.dataloader import BalancedDataLoaderIterator
-from utils.ddp import is_main_process, get_world_size, is_dist_avail_and_initialized
+from utils.ddp import is_main_process, get_world_size
 
 import torch
-import torch.nn as nn
 from torch import optim
 import torch.distributed as dist
 
@@ -19,10 +18,17 @@ import wandb
 import importlib
 import sys
 
+from torch.nn.parallel import DistributedDataParallel as DDP
+
 warnings.filterwarnings('ignore')
 
 
-#重写print函数，使其能同时输出到终端和保存到日志文件
+
+"""args:
+    *args: 可变参数，表示任意数量的位置参数
+    **kwargs: 可变关键字参数，表示任意数量的关键字参数,为键值对形式
+当只指定folder文件夹，那么同时输出到终端和保存到folder下的finetune_output.log文件中
+"""
 def custom_print_decorator(func):
     def wrapper(*args, **kwargs):
         text = ' '.join(map(str, args))
@@ -72,10 +78,12 @@ def init_and_merge_datasets(data_loader_list):
 
 
 class Exp_All_Task(object):
-    def __init__(self, args):
+    def __init__(self, args,setting):
         super(Exp_All_Task, self).__init__()
 
         self.args = args
+        #单卡调试
+        self.ddp = False if args.debug == "disabled" else True
         self.task_data_config = read_task_data_config(
             self.args.task_data_config_path)        #读取多任务的任务描述yaml文件为字典
         #[['NN5_p112', {...}],[,]...]
@@ -83,30 +91,34 @@ class Exp_All_Task(object):
             self.task_data_config, default_batch_size=self.args.batch_size)
         
         # 支持单卡模式
-        if self.args.single_gpu:
+        if not self.ddp:
             self.device_id = 0
         else:
-            device_id = dist.get_rank() % torch.cuda.device_count()
-            self.device_id = device_id
-        
+            self.device_id = dist.get_rank() % torch.cuda.device_count()
         print("this device_id:", self.device_id)
+        
+        #为实验创建一个唯一的存储目录，用于保存模型的检查点文件和训练日志
+        path = os.path.join(self.args.checkpoints, setting)
+        if not os.path.exists(path) and is_main_process():
+            os.makedirs(path)
+        self.path = path
 
     def _build_model(self, ddp=True):       #ddp:分布式数据并行
         module = importlib.import_module("models."+self.args.model) #导入models.UniTS
-        model = module.Model(
-            self.args, self.task_data_config_list, pretrain=True).to(self.device_id)
+        model = module.Model(self.args, self.task_data_config_list, pretrain=True).to(self.device_id)
         
         # 当使用单卡模式或ddp=False时，不使用DistributedDataParallel
-        if ddp and not self.single_gpu:
-            model = nn.parallel.DistributedDataParallel(
-                model, device_ids=[self.device_id], find_unused_parameters=True)
+        # 对于多分支模型，find_unused_parameters必须使用，对于未使用的参数，跳过梯度同步过程。
+        if self.ddp: model = DDP(model, device_ids=[self.device_id], find_unused_parameters=True)
         
         return model.to(self.device_id)
 
     #返回所有数据集对应的dataset和dataloader列表
     def _get_data(self, flag):
-        data_set_list = []
-        data_loader_list = []
+        dataset_list = []
+        dataloader_list = []
+        #task_name: LTF_Traffic_p192
+        #task_config: {'task_name': 'pretrain_long_term_forecast', 'dataset': 'Traffic', 'data': 'custom', 'embed': 'timeF', 
         for task_data_name, task_config in self.task_data_config.items():
             print("loading dataset:", task_data_name, folder=self.path)
             if task_config['data'] == 'UEA' and flag == 'val':
@@ -114,13 +126,12 @@ class Exp_All_Task(object):
                 flag = 'test'
             
             # 根据是否单卡调试模式决定分布式加载
-            use_ddp = not self.single_gpu
             data_set, data_loader = data_provider(
-                self.args, task_config, flag, ddp=use_ddp)
+                self.args, task_config, flag, ddp=self.ddp)
             
-            data_set_list.append(data_set)
-            data_loader_list.append(data_loader)
-        return data_set_list, data_loader_list
+            dataset_list.append(data_set)
+            dataloader_list.append(data_loader)
+        return dataset_list, dataloader_list
 
     def _select_optimizer(self):
         eff_batch_size = self.args.batch_size * self.args.acc_it * get_world_size()
@@ -135,15 +146,11 @@ class Exp_All_Task(object):
         ), lr=real_learning_rate, betas=(0.9, self.args.beta2), weight_decay=self.args.weight_decay, eps=self.args.eps)
         return model_optim
 
-    def train(self, setting):
-        #为实验创建一个唯一的存储目录，用于保存模型的检查点文件和训练日志
-        path = os.path.join(self.args.checkpoints, setting)
-        if not os.path.exists(path) and is_main_process():
-            os.makedirs(path)
-        self.path = path
+    def train(self):
+
 
         # 只在分布式训练时进行同步
-        if not self.single_gpu:
+        if self.ddp:
             torch.cuda.synchronize()
             dist.barrier()
 
@@ -158,12 +165,12 @@ class Exp_All_Task(object):
             torch.cuda.empty_cache()
         
         # 只在分布式训练时进行同步
-        if not self.single_gpu:
+        if self.ddp:
             torch.cuda.synchronize()
             dist.barrier()
 
         # M构建模型
-        self.model = self._build_model()
+        self.model = self._build_model(ddp=self.ddp)
 
         #输出模型参数和训练步数信息
         pytorch_total_params = sum(p.numel() for p in self.model.parameters())
@@ -202,7 +209,7 @@ class Exp_All_Task(object):
                     'args': self.args,
                 }
 
-                torch.save(save_dict, path + '/' + 'pretrain_checkpoint.pth')
+                torch.save(save_dict, self.path + '/' + 'pretrain_checkpoint.pth')
 
         return self.model
 

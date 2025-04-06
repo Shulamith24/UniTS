@@ -2,9 +2,6 @@
   "version": "0.2.0",
   "configurations": [
   
-    
-
-    
     {
       "name": "Pretrain UniTS",
       "type": "debugpy",
@@ -33,7 +30,6 @@
         "--max_mask_ratio", "0.8",              //最大掩码比例
         "--debug", "disabled",                    
         "--task_data_config_path", "data_provider/multi_task_pretrain.yaml",
-        "--single_gpu"
       ],
       "python": "${config:python.pythonPath}",
       "env": {

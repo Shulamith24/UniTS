@@ -42,8 +42,7 @@ if __name__ == '__main__':
                         help='data loader num workers')
     parser.add_argument("--memory_check", action="store_true", default=True)
     parser.add_argument("--large_model", action="store_true", default=True)
-    parser.add_argument("--single_gpu", action="store_true", default=False, 
-                        help="使用单卡调试模式，不使用分布式训练")
+
 
     # optimization
     parser.add_argument('--itr', type=int, default=1, help='experiments times')
@@ -113,7 +112,7 @@ if __name__ == '__main__':
                         type=str, default=None, help='unify')
 
     args = parser.parse_args()
-    init_distributed_mode(args, single_gpu=args.single_gpu)
+    init_distributed_mode(args)
     if args.fix_seed is not None:
         random.seed(args.fix_seed)
         torch.manual_seed(args.fix_seed)

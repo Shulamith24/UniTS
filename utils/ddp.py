@@ -1,6 +1,9 @@
 import torch.distributed as dist
 import torch
 
+from torch.nn.parallel import DistributedDataParallel as DDP
+# from torch.distributed import init_process_group, destroy_process_group
+
 
 #检查分布式环境是否可用且已经初始化
 def is_dist_avail_and_initialized():
@@ -17,6 +20,7 @@ def get_world_size():               #分布式训练中参与的进程数(GPU数
     return dist.get_world_size()
 
 
+
 def get_rank():                     #获取当前进程的rank
     if not is_dist_avail_and_initialized(): #如果没初始化成功，当前进程就是主进程
         return 0
@@ -28,7 +32,7 @@ def is_main_process():              #判断当前进程是否是主进程
 
 
 def init_distributed_mode(args):    #初始化分布式训练模式，添加单卡模式选项
-    if args.single_gpu:
+    if args.debug == "disabled":
         print("使用单卡模式进行调试")
         # 单卡模式不初始化分布式训练
         device_id = 0
@@ -38,9 +42,8 @@ def init_distributed_mode(args):    #初始化分布式训练模式，添加单�
         return
 
     # 原有的分布式训练初始化代码
-    dist.init_process_group(        #进程组初始化
-        backend="nccl",
-    )
+    dist.init_process_group(backend="nccl")
+    
     rank = dist.get_rank()          #获取当前进程rank，将当前进程绑定到一个GPU
     torch.cuda.set_device(rank)     
     torch.cuda.empty_cache()        ##清空GPU缓存

@@ -50,8 +50,8 @@ if __name__ == '__main__':
     parser.add_argument('--num_workers', type=int, default=0,
                         help='data loader num workers')
     # 添加单卡调试模式的参数
-    parser.add_argument("--single_gpu", action="store_true", default=False, 
-                        help="使用单卡调试模式，不使用分布式训练")
+    # parser.add_argument("--single_gpu", action="store_true", default=False, 
+    #                     help="使用单卡调试模式，不使用分布式训练")
 
     # optimization
     parser.add_argument('--itr', type=int, default=1, help='experiments times')
@@ -99,6 +99,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     # 根据命令行参数决定是否使用单卡模式
     
+    #分布式训练的初始化，
     init_distributed_mode(args)
 
     print('Args in experiment:')
@@ -143,8 +144,8 @@ if __name__ == '__main__':
                 args.e_layers,
                 args.des, ii)
 
-            exp = Exp(args)  # set experiments
+            exp = Exp(args,setting)  # set experiments
             print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
-            exp.train(setting)
+            exp.train()
 
             torch.cuda.empty_cache()

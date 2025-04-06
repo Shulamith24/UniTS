@@ -31,13 +31,15 @@ def random_subset(dataset, pct, seed):
 
 
 def data_provider(args, config, flag, ddp=False):  # args,
+    #Data：Custom/Glounts，从data_dict中获取定义好的Dataset类
     Data = data_dict[config['data']]
     timeenc = 0 if config['embed'] != 'timeF' else 1
 
+    # 设置要传入Dataset类中的参数
     if flag == 'test':
         shuffle_flag = False
         drop_last = False
-        if 'anomaly_detection' in config['task_name']:  # working on one gpu
+        if 'anomaly_detection' in config['task_name']:  # 当前任务目标
             batch_size = args.batch_size
         else:
             batch_size = 1  # bsz=1 for evaluation
@@ -48,6 +50,8 @@ def data_provider(args, config, flag, ddp=False):  # args,
         batch_size = args.batch_size  # bsz for train and valid
         freq = args.freq
 
+
+    #开始将参数逐个传入Dataset类中
     if 'gluonts' in config['data']:
         # process gluonts dataset:
         data_set = Data(
