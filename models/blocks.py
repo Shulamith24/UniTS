@@ -9,7 +9,7 @@ from torch import nn
 from timm.layers import Mlp, DropPath
 from timm.layers.helpers import to_2tuple
 
-from ..layers import *
+from layers import *
 
 class SeqAttBlock(nn.Module):
 

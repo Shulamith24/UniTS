@@ -879,7 +879,7 @@ class GLUONTSDataset(Dataset):
                 dataset_name=dataset_name,
                 path=path,
                 regenerate=False,
-                dataset_writer=dataset_writer
+                dataset_writer=dataset_writer       #数据写入格式，默认为JSON lines
             )
         except:
             print('Regenerating {}...'.format(dataset_name))
@@ -895,7 +895,7 @@ class GLUONTSDataset(Dataset):
 
         # Will need to do splitting internally or externally after the below steps
 
-        # Getting test gives you all the data. .train is just downsampled version
+        # x存储所有数据，times存储所有数据的时间戳
         x = []
         times = []
         for inp_dict in self.gluonts_dataset.test:
@@ -903,6 +903,7 @@ class GLUONTSDataset(Dataset):
             times.append(inp_dict['start'])
             # May need to look into quicker method if the for loop turns out to be slow
 
+        #如果是多变量，将x中的多个一维数组沿着新维度堆叠起来，形成一个二维数组。
         if self.features == "M":
             # multivariate, dataset becomes just one series, where each series is a new variable
             x = np.stack(x, axis=1)

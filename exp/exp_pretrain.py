@@ -1,8 +1,7 @@
-from data_provider.data_factory import data_provider
+from data_provider.data_factory import data_provider, BalancedDataLoaderIterator
 from utils.tools import cosine_scheduler
 from utils.tools import NativeScalerWithGradNormCount as NativeScaler
 from utils.losses import UnifiedMaskRecLoss
-from utils.dataloader import BalancedDataLoaderIterator
 from utils.ddp import is_main_process, get_world_size
 
 import torch
@@ -109,11 +108,14 @@ class Exp_All_Task(object):
         
         # 当使用单卡模式或ddp=False时，不使用DistributedDataParallel
         # 对于多分支模型，find_unused_parameters必须使用，对于未使用的参数，跳过梯度同步过程。
-        if self.ddp: model = DDP(model, device_ids=[self.device_id], find_unused_parameters=True)
+        if self.ddp: 
+            model = DDP(model, device_ids=[self.device_id], find_unused_parameters=True)
         
         return model.to(self.device_id)
 
     #返回所有数据集对应的dataset和dataloader列表
+    """time series library这个库定义的dataloader每个batch中的每个样本包括：[seq_x,seq_y,seq_x_mark,seq_y_mark]
+        也就是四个tensor张量的列表"""
     def _get_data(self, flag):
         dataset_list = []
         dataloader_list = []
@@ -127,34 +129,38 @@ class Exp_All_Task(object):
             
             # 根据是否单卡调试模式决定分布式加载
             data_set, data_loader = data_provider(
-                self.args, task_config, flag, ddp=self.ddp)
+                self.args, task_config, flag, ddp=self.ddp)   
             
             dataset_list.append(data_set)
             dataloader_list.append(data_loader)
         return dataset_list, dataloader_list
 
-    def _select_optimizer(self):
-        eff_batch_size = self.args.batch_size * self.args.acc_it * get_world_size()
-        real_learning_rate = self.args.learning_rate * eff_batch_size / 32
+    #根据训练配置选择优化器，并动态调整学习率
+    """学习率应当与优化器相匹配，如果使用的是4倍batchsize，学习率也要*4"""
+    def _select_optimizer(self):    #_表示内部方法
+        eff_batch_size = self.args.batch_size * self.args.acc_it * get_world_size() #计算有效batch_size = 单卡batch_size * 梯度累计步数 * 卡数
+        real_learning_rate = self.args.learning_rate * eff_batch_size / 32 #计算实际学习率 = 预设学习率 * 有效batch_size / 32
+        #args.学习率/累计梯度步数/world_size，也就是如果按照输入的学习率来，那么实际的学习率是多大
         print("base lr: %.2e" % (self.args.learning_rate * 32 / eff_batch_size))
+        #打印实际的学习率是多大
         print("actual lr: %.2e" % real_learning_rate)
         self.real_learning_rate = real_learning_rate
-
+        #打印累计梯度伦次和有效的batch_size 
         print("accumulate grad iterations: %d" % self.args.acc_it)
         print("effective batch size: %d" % eff_batch_size)
+        #选择Adam优化器,beta:动量项参数，weight_decay:正则化参数，eps:防止分母为0
         model_optim = optim.Adam(self.model.parameters(
         ), lr=real_learning_rate, betas=(0.9, self.args.beta2), weight_decay=self.args.weight_decay, eps=self.args.eps)
         return model_optim
 
     def train(self):
 
-
         # 只在分布式训练时进行同步
         if self.ddp:
             torch.cuda.synchronize()
             dist.barrier()
 
-        # 输入dataloader列表返回一个抽样式dataloader，每次调用next返回一个样本和对应的数据集标识
+        # 返回
         _, train_loader_list = self._get_data(flag='train')
         data_loader_cycle, train_steps = init_and_merge_datasets(
             train_loader_list)
@@ -228,6 +234,7 @@ class Exp_All_Task(object):
         loss_sum_display = 0
 
         #遍历数据
+        """"""
         for i, (sample_init, task_id) in enumerate(data_loader_cycle):
             it = train_steps * epoch + i            #全局迭代步数
             for _, param_group in enumerate(model_optim.param_groups):  #
@@ -350,7 +357,7 @@ class Exp_All_Task(object):
 
         return list(zip(split_batch_x, split_batch_x_mark, split_padding_mask))
 
-    def memory_check(self, data_loader_cycle, holdout_memory=6):
+    def memory_check(self, data_loader_cycle, holdout_memory=1):
         """
         Checks the memory usage of the model by gradually increasing the batch size until it reaches the maximum batch size that can be supported without running out of memory.
 
@@ -361,16 +368,21 @@ class Exp_All_Task(object):
         Returns:
             None
         """
+        #预先留holdout_memory大小的内存，用于其他操作，GB*1024*1024*1024/4，因为每个float32占4个字节,所以总元素数除以4
         num_elements = holdout_memory * 1024 * 1024 * 1024 // 4
         extra_mem = torch.empty(
             num_elements, dtype=torch.float32, device=self.device_id)
 
         model_tmp = self._build_model(ddp=False)
+        #构建损失函数
         criterion = UnifiedMaskRecLoss().to(self.device_id)
+        #模型.train()，设置为训练模式
         model_tmp.train()
+        #将梯度设为None
         model_tmp.zero_grad(set_to_none=True)
 
         for data_loader_id in range(data_loader_cycle.num_dataloaders):
+            #batch_size从1开始倍增
             batch_size = 1
             max_batch_size = 0
             torch.cuda.synchronize()
@@ -392,6 +404,7 @@ class Exp_All_Task(object):
 
                     print(task_id, task_name,
                           sample[0].shape, "max batch size", max_batch_size)
+                    #为什么使用自动精度?
                     with torch.cuda.amp.autocast():
                         model_output = model_tmp(
                             x_enc=batch_x, x_mark_enc=batch_x_mark, task_id=task_id, task_name=task_name, enable_mask=True)

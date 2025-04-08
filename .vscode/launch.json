@@ -1,6 +1,8 @@
 {
   "version": "0.2.0",
   "configurations": [
+    
+
   
     {
       "name": "Pretrain UniTS",
@@ -30,10 +32,11 @@
         "--max_mask_ratio", "0.8",              //最大掩码比例
         "--debug", "disabled",                    
         "--task_data_config_path", "data_provider/multi_task_pretrain.yaml",
+        "--memory_check"
       ],
       "python": "${config:python.pythonPath}",
       "env": {
-        "CUDA_VISIBLE_DEVICES": "0"  // Ensure it uses a single GPU (GPU 0)
+        "CUDA_VISIBLE_DEVICES": "1"  // Ensure it uses a single GPU (GPU 1)
       },
       "console": "integratedTerminal"
     }
